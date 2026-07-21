@@ -1,6 +1,6 @@
 {
-  "name": "TrakDroid PRO",
-  "description": "Professional 4-deck DJ studio with interactive vinyl turntables, entire track waveforms, full 4-channel audio mixers, and custom procedural loops.",
+  "name": "Traktor Pro 4",
+  "description": "Native Instruments Traktor Pro 4 setup with 4 performance decks, dual scrolling spectrum and track overview waveforms, central 4-channel matrix mixer, stem isolation controls, and track collection browser.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
