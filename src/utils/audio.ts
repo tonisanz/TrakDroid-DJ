@@ -39,6 +39,19 @@ class AudioEngine {
   private activeTracks: Map<DeckId, Track> = new Map();
   private rates: Map<DeckId, number> = new Map();
 
+  public async setAudioOutputDevice(deviceId: string): Promise<boolean> {
+    if (!this.ctx) this.init();
+    try {
+      if (this.ctx && typeof (this.ctx as any).setSinkId === "function") {
+        await (this.ctx as any).setSinkId(deviceId);
+        return true;
+      }
+    } catch (e) {
+      console.warn("setSinkId failed or not supported in this browser environment", e);
+    }
+    return false;
+  }
+
   constructor() {
     // Initialized lazily on first user gesture
   }
@@ -245,6 +258,10 @@ class AudioEngine {
       this.deckSources.delete(deck);
     }
     this.stopSequencer(deck);
+  }
+
+  public pauseTrack(deck: DeckId) {
+    this.stopTrack(deck);
   }
 
   public getPlaybackProgress(deck: DeckId, duration: number): number {

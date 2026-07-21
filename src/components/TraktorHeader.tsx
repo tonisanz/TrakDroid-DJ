@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Activity, Power, Volume2, Clock, Zap, Cpu } from "lucide-react";
+import { MixerMode } from "../types";
 
 interface TraktorHeaderProps {
   masterBpm: number;
@@ -15,6 +16,7 @@ interface TraktorHeaderProps {
   onQuantizeToggle: () => void;
   snap: boolean;
   onSnapToggle: () => void;
+  mixerMode?: MixerMode;
 }
 
 export const TraktorHeader: React.FC<TraktorHeaderProps> = ({
@@ -26,6 +28,7 @@ export const TraktorHeader: React.FC<TraktorHeaderProps> = ({
   onQuantizeToggle,
   snap,
   onSnapToggle,
+  mixerMode = "internal",
 }) => {
   const [timeStr, setTimeStr] = useState("13:14");
   const [fx1Preset, setFx1Preset] = useState("909 Kit");
@@ -87,10 +90,20 @@ export const TraktorHeader: React.FC<TraktorHeaderProps> = ({
 
       {/* Traktor Center Master Clock & BPM Panel */}
       <div className="flex items-center gap-3 bg-slate-900/90 border border-white/10 rounded-lg px-3 py-1 shadow-inner">
-        {/* Brand Logo */}
-        <div className="flex items-center gap-1">
-          <span className="font-black text-xs text-white tracking-tighter">TRAKTOR</span>
+        {/* Brand Logo & External Mode Indicator */}
+        <div className="flex items-center gap-1.5">
+          <span className="font-black text-xs text-white tracking-tighter">TRAKDROID</span>
           <span className="bg-cyan-500 text-black px-1 rounded text-[8px] font-black uppercase">PRO 4</span>
+
+          {mixerMode === "external" ? (
+            <span className="bg-amber-500 text-black border border-amber-400 px-1 py-0.5 rounded text-[7.5px] font-black uppercase tracking-widest shadow-[0_0_6px_#f59e0b]">
+              EXT MIXER (AUDIO 8 DJ)
+            </span>
+          ) : (
+            <span className="bg-slate-800 text-slate-400 border border-white/10 px-1 py-0.5 rounded text-[7.5px] font-black uppercase tracking-widest">
+              INT MIXER
+            </span>
+          )}
         </div>
 
         <div className="w-px h-5 bg-white/10" />

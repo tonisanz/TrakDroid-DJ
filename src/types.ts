@@ -18,7 +18,49 @@ export interface Track {
   fileName?: string;
 }
 
+export interface Playlist {
+  id: string;
+  name: string;
+  trackIds: string[];
+  isSystem?: boolean;
+}
+
+export interface MidiDevice {
+  id: string;
+  name: string;
+  manufacturer?: string;
+  state: "connected" | "disconnected";
+}
+
+export interface AudioDeviceOption {
+  deviceId: string;
+  label: string;
+}
+
 export type DeckId = "A" | "B" | "C" | "D";
+
+export type MixerMode = "internal" | "external";
+
+export interface ChannelOutputPair {
+  id: string;
+  label: string;
+  channels: [number, number]; // e.g. [0, 1] for Output 1/2
+}
+
+export interface DeckRoutingConfig {
+  channelPairId: string;
+  label: string;
+}
+
+export interface MidiMapItem {
+  id: string;
+  label: string;
+  deckId: DeckId;
+  parameter: "play" | "cue" | "sync" | "volume" | "eqLow" | "eqMid" | "eqHigh" | "filter" | "hotcue1" | "hotcue2" | "pitch" | "loop";
+  status: number | null;   // e.g., 0x90 (Note On) or 0xB0 (Control Change)
+  ccOrNote: number | null; // e.g., 60 or CC 1
+  channel: number | null;
+}
 
 export interface StemLevels {
   drums: number; // 0.0 to 1.0

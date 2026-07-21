@@ -1,6 +1,6 @@
 {
-  "name": "Traktor Pro 4",
-  "description": "Native Instruments Traktor Pro 4 setup with 4 performance decks, dual scrolling spectrum and track overview waveforms, central 4-channel matrix mixer, stem isolation controls, and track collection browser.",
+  "name": "TrakDroid",
+  "description": "Professional 4-deck DJ performance studio with interactive dual spectrum and overview waveforms, central 4-channel matrix mixer, stem isolation, and track collection browser.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
