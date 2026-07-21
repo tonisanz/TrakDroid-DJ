@@ -14,6 +14,8 @@ export interface Track {
   file?: File; // Present if user loaded a custom MP3/WAV
 }
 
+export type DeckId = "A" | "B" | "C" | "D";
+
 export interface DeckState {
   track: Track | null;
   isPlaying: boolean;
@@ -29,23 +31,4 @@ export interface DeckState {
   duration: number;    // seconds
   scratchPosition: number; // Rotation degree of the vinyl
   cuePoint: number | null; // Set hotcue point (seconds)
-}
-
-export interface SamplePad {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  type: "airhorn" | "siren" | "laser" | "bassdrop" | "white_noise_sweep";
-}
-
-export interface AiResponse {
-  hypeComment: string;
-  transitionTips: string[];
-  musicRecommendations: {
-    title: string;
-    genre: string;
-    suggestedBpm: number;
-    transitionStyle: string;
-  }[];
 }

@@ -1,6 +1,6 @@
 {
-  "name": "Traktor DJ - AI Studio",
-  "description": "Interactive mobile-responsive DJ deck with turntables, full audio mixers, visualizers, procedural loops, and an AI co-host DJ assistant.",
+  "name": "TrakDroid PRO",
+  "description": "Professional 4-deck DJ studio with interactive vinyl turntables, entire track waveforms, full 4-channel audio mixers, and custom procedural loops.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

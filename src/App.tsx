@@ -7,23 +7,16 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   Disc,
   Upload,
-  Volume2,
-  Sparkles,
-  Sliders,
-  HelpCircle,
   FolderOpen,
   Music,
+  Sliders,
   Activity,
-  Plus,
-  Compass,
   AlertCircle
 } from "lucide-react";
-import { Track, DeckState } from "./types";
+import { Track, DeckState, DeckId } from "./types";
 import { audio } from "./utils/audio";
 import { Turntable } from "./components/Turntable";
 import { Mixer } from "./components/Mixer";
-import { SoundPad } from "./components/SoundPad";
-import { AiCoach } from "./components/AiCoach";
 
 // 5 high-fidelity procedural algorithmic preset tracks
 const PRESET_LOOPS: Track[] = [
@@ -76,15 +69,14 @@ const PRESET_LOOPS: Track[] = [
 
 export default function App() {
   const [hasStarted, setHasStarted] = useState(false);
-  const [activeTab, setActiveTab] = useState<"decks" | "mixer" | "ai" | "soundpads">("decks");
   
   // Custom Loading Dialog Modal
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
-  const [targetDeck, setTargetDeck] = useState<"A" | "B" | null>(null);
+  const [targetDeck, setTargetDeck] = useState<DeckId | null>(null);
 
-  // Deck State Management
+  // 4 Deck States Management (A, B, C, D)
   const [deckA, setDeckA] = useState<DeckState>({
-    track: PRESET_LOOPS[0], // Preloaded Default
+    track: PRESET_LOOPS[0],
     isPlaying: false,
     volume: 0.8,
     playbackRate: 1.0,
@@ -95,13 +87,13 @@ export default function App() {
     eqHigh: 0,
     filterCutoff: 0,
     currentTime: 0,
-    duration: 16, // Loop duration
+    duration: 16,
     scratchPosition: 0,
     cuePoint: null,
   });
 
   const [deckB, setDeckB] = useState<DeckState>({
-    track: PRESET_LOOPS[1], // Preloaded Default
+    track: PRESET_LOOPS[1],
     isPlaying: false,
     volume: 0.8,
     playbackRate: 1.0,
@@ -117,8 +109,41 @@ export default function App() {
     cuePoint: null,
   });
 
+  const [deckC, setDeckC] = useState<DeckState>({
+    track: PRESET_LOOPS[2],
+    isPlaying: false,
+    volume: 0.6,
+    playbackRate: 1.0,
+    bpm: PRESET_LOOPS[2].bpm,
+    pitchPercent: 0,
+    eqLow: 0,
+    eqMid: 0,
+    eqHigh: 0,
+    filterCutoff: 0,
+    currentTime: 0,
+    duration: 16,
+    scratchPosition: 0,
+    cuePoint: null,
+  });
+
+  const [deckD, setDeckD] = useState<DeckState>({
+    track: PRESET_LOOPS[3],
+    isPlaying: false,
+    volume: 0.6,
+    playbackRate: 1.0,
+    bpm: PRESET_LOOPS[3].bpm,
+    pitchPercent: 0,
+    eqLow: 0,
+    eqMid: 0,
+    eqHigh: 0,
+    filterCutoff: 0,
+    currentTime: 0,
+    duration: 16,
+    scratchPosition: 0,
+    cuePoint: null,
+  });
+
   const [crossfader, setCrossfader] = useState(0); // Center -1 to 1
-  const [activeSamples, setActiveSamples] = useState<string[]>([]);
   const [tracksList, setTracksList] = useState<Track[]>(PRESET_LOOPS);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -127,68 +152,135 @@ export default function App() {
   const handleStartAudio = () => {
     audio.init();
     // Warm up decks with the default preloaded tracks in the audio engine
-    if (deckA.track) audio.setVolume("A", deckA.volume);
-    if (deckB.track) audio.setVolume("B", deckB.volume);
+    audio.setVolume("A", deckA.volume);
+    audio.setVolume("B", deckB.volume);
+    audio.setVolume("C", deckC.volume);
+    audio.setVolume("D", deckD.volume);
     audio.setCrossfader(crossfader);
     setHasStarted(true);
   };
 
+  // Time progress ticker
+  useEffect(() => {
+    if (!hasStarted) return;
+    const interval = setInterval(() => {
+      // Helper to update progress second values safely
+      const updateTime = (deckId: DeckId, setDeck: React.Dispatch<React.SetStateAction<DeckState>>) => {
+        setDeck(prev => {
+          if (!prev.isPlaying || !prev.track) return prev;
+          const prog = audio.getPlaybackProgress(deckId, prev.duration);
+          return { ...prev, currentTime: prog * prev.duration };
+        });
+      };
+      updateTime("A", setDeckA);
+      updateTime("B", setDeckB);
+      updateTime("C", setDeckC);
+      updateTime("D", setDeckD);
+    }, 250);
+    return () => clearInterval(interval);
+  }, [hasStarted]);
+
   // --- Deck Triggers and Syncs ---
 
-  const handlePlayToggle = (deckId: "A" | "B") => {
+  const handlePlayToggle = (deckId: DeckId) => {
     audio.init();
-    const isA = deckId === "A";
-    const state = isA ? deckA : deckB;
-    const setState = isA ? setDeckA : setDeckB;
+    const getDeckState = (id: DeckId) => {
+      if (id === "A") return deckA;
+      if (id === "B") return deckB;
+      if (id === "C") return deckC;
+      return deckD;
+    };
+    const getDeckSetter = (id: DeckId) => {
+      if (id === "A") return setDeckA;
+      if (id === "B") return setDeckB;
+      if (id === "C") return setDeckC;
+      return setDeckD;
+    };
+
+    const state = getDeckState(deckId);
+    const setDeck = getDeckSetter(deckId);
 
     if (state.isPlaying) {
       audio.stopTrack(deckId);
-      setState(prev => ({ ...prev, isPlaying: false }));
+      setDeck(prev => ({ ...prev, isPlaying: false }));
     } else {
       if (state.track) {
         audio.playTrack(deckId, state.track, state.currentTime);
-        setState(prev => ({ ...prev, isPlaying: true }));
+        setDeck(prev => ({ ...prev, isPlaying: true }));
       }
     }
   };
 
-  const handleVolumeChange = (deckId: "A" | "B", value: number) => {
+  const handleVolumeChange = (deckId: DeckId, value: number) => {
     audio.setVolume(deckId, value);
-    if (deckId === "A") {
-      setDeckA(prev => ({ ...prev, volume: value }));
-    } else {
-      setDeckB(prev => ({ ...prev, volume: value }));
-    }
+    const getDeckSetter = (id: DeckId) => {
+      if (id === "A") return setDeckA;
+      if (id === "B") return setDeckB;
+      if (id === "C") return setDeckC;
+      return setDeckD;
+    };
+    getDeckSetter(deckId)(prev => ({ ...prev, volume: value }));
   };
 
-  const handleEQChange = (deckId: "A" | "B", type: "low" | "mid" | "high", db: number) => {
+  const handleEQChange = (deckId: DeckId, type: "low" | "mid" | "high", db: number) => {
     audio.setEQ(deckId, type, db);
-    const setState = deckId === "A" ? setDeckA : setDeckB;
-    setState((prev: any) => ({ ...prev, [`eq${type.charAt(0).toUpperCase() + type.slice(1)}`]: db }));
+    const getDeckSetter = (id: DeckId) => {
+      if (id === "A") return setDeckA;
+      if (id === "B") return setDeckB;
+      if (id === "C") return setDeckC;
+      return setDeckD;
+    };
+    getDeckSetter(deckId)((prev: any) => ({ ...prev, [`eq${type.charAt(0).toUpperCase() + type.slice(1)}`]: db }));
   };
 
-  const handleFilterChange = (deckId: "A" | "B", value: number) => {
+  const handleFilterChange = (deckId: DeckId, value: number) => {
     audio.setFilter(deckId, value);
-    const setState = deckId === "A" ? setDeckA : setDeckB;
-    setState(prev => ({ ...prev, filterCutoff: value }));
+    const getDeckSetter = (id: DeckId) => {
+      if (id === "A") return setDeckA;
+      if (id === "B") return setDeckB;
+      if (id === "C") return setDeckC;
+      return setDeckD;
+    };
+    getDeckSetter(deckId)(prev => ({ ...prev, filterCutoff: value }));
   };
 
-  const handlePitchChange = (deckId: "A" | "B", value: number) => {
+  const handlePitchChange = (deckId: DeckId, value: number) => {
     audio.setPitch(deckId, value);
-    const isA = deckId === "A";
-    const state = isA ? deckA : deckB;
-    const setState = isA ? setDeckA : setDeckB;
+    const getDeckState = (id: DeckId) => {
+      if (id === "A") return deckA;
+      if (id === "B") return deckB;
+      if (id === "C") return deckC;
+      return deckD;
+    };
+    const getDeckSetter = (id: DeckId) => {
+      if (id === "A") return setDeckA;
+      if (id === "B") return setDeckB;
+      if (id === "C") return setDeckC;
+      return setDeckD;
+    };
+
+    const state = getDeckState(deckId);
+    const setDeck = getDeckSetter(deckId);
 
     if (state.track) {
       const activeBpm = state.track.bpm * (1.0 + value / 100);
-      setState(prev => ({ ...prev, pitchPercent: value, playbackRate: 1.0 + value / 100, bpm: activeBpm }));
+      setDeck(prev => ({ ...prev, pitchPercent: value, playbackRate: 1.0 + value / 100, bpm: activeBpm }));
     }
   };
 
-  const handleSync = (fromDeck: "A" | "B", toDeck: "A" | "B") => {
-    // Aligns 'fromDeck' speed directly to match the 'toDeck' BPM!
-    const targetBpm = toDeck === "A" ? deckA.bpm : deckB.bpm;
-    const fromTrackBpm = fromDeck === "A" ? deckA.track?.bpm : deckB.track?.bpm;
+  const handleSync = (fromDeck: DeckId, toDeck: DeckId) => {
+    const getDeckState = (id: DeckId) => {
+      if (id === "A") return deckA;
+      if (id === "B") return deckB;
+      if (id === "C") return deckC;
+      return deckD;
+    };
+
+    const fromState = getDeckState(fromDeck);
+    const toState = getDeckState(toDeck);
+
+    const targetBpm = toState.bpm;
+    const fromTrackBpm = fromState.track?.bpm;
     
     if (!fromTrackBpm) return;
 
@@ -197,7 +289,6 @@ export default function App() {
     handlePitchChange(fromDeck, pitchPercent);
 
     // Briefly re-trigger track to phase align beat markers
-    const fromState = fromDeck === "A" ? deckA : deckB;
     if (fromState.isPlaying && fromState.track) {
       audio.playTrack(fromDeck, fromState.track, 0);
     }
@@ -210,7 +301,7 @@ export default function App() {
 
   // --- Track Selection Popup Loader ---
 
-  const openLoadModal = (deck: "A" | "B") => {
+  const openLoadModal = (deck: DeckId) => {
     setTargetDeck(deck);
     setIsLoadModalOpen(true);
   };
@@ -219,17 +310,29 @@ export default function App() {
     if (!targetDeck) return;
     audio.init();
 
-    const isA = targetDeck === "A";
-    const setState = isA ? setDeckA : setDeckB;
-    const oppositeState = isA ? deckB : deckA;
+    const getDeckSetter = (id: DeckId) => {
+      if (id === "A") return setDeckA;
+      if (id === "B") return setDeckB;
+      if (id === "C") return setDeckC;
+      return setDeckD;
+    };
+    const getDeckState = (id: DeckId) => {
+      if (id === "A") return deckA;
+      if (id === "B") return deckB;
+      if (id === "C") return deckC;
+      return deckD;
+    };
+
+    const setDeck = getDeckSetter(targetDeck);
+    const currentState = getDeckState(targetDeck);
 
     // Stop previous track on target deck
     audio.stopTrack(targetDeck);
 
-    setState({
+    setDeck({
       track,
       isPlaying: false,
-      volume: isA ? deckA.volume : deckB.volume,
+      volume: currentState.volume,
       playbackRate: 1.0,
       bpm: track.bpm,
       pitchPercent: 0,
@@ -238,7 +341,7 @@ export default function App() {
       eqHigh: 0,
       filterCutoff: 0,
       currentTime: 0,
-      duration: track.isProcedural ? 16 : 120, // estimated duration for files
+      duration: track.isProcedural ? 16 : 120, // estimated duration
       scratchPosition: 0,
       cuePoint: null,
     });
@@ -247,7 +350,7 @@ export default function App() {
     setTargetDeck(null);
   };
 
-  // Custom File Uploader decoder
+  // Device File Upload Decoder
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !targetDeck) return;
@@ -257,32 +360,25 @@ export default function App() {
       id: trackId,
       title: file.name.replace(/\.[^/.]+$/, ""), // Strip extension
       artist: "Archivo Local",
-      bpm: 125, // default starting tempo for custom files
+      bpm: 125, // default
       genre: "Custom Audio",
-      color: targetDeck === "A" ? "cyan" : "purple",
+      color: targetDeck === "A" ? "cyan" : targetDeck === "B" ? "purple" : targetDeck === "C" ? "emerald" : "amber",
       isProcedural: false,
       file: file,
     };
 
-    // Decode file buffer in Web Audio API engine
     const estimatedBpm = await audio.loadUserFile(targetDeck, file, trackId);
     newTrack.bpm = estimatedBpm;
 
-    // Add to lists and select it
     setTracksList((prev) => [...prev, newTrack]);
     selectTrack(newTrack);
   };
 
-  // --- AI Suggested track loaded from AiCoach ---
-  const handleLoadSuggestedTrack = (suggestedTrack: Track, deckId: "A" | "B") => {
-    setTargetDeck(deckId);
-    selectTrack(suggestedTrack);
-  };
-
   return (
-    <div id="mobodj-app" className="min-h-screen bg-black text-slate-300 flex flex-col font-sans select-none antialiased selection:bg-cyan-500/30">
-      {/* Background glowing atmosphere */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-cyan-500/5 blur-[120px] pointer-events-none" />
+    <div id="trakdroid-app" className="min-h-screen bg-black text-slate-300 flex flex-col font-sans select-none antialiased selection:bg-cyan-500/30">
+      {/* Background glowing atmospheres */}
+      <div className="absolute top-0 left-1/4 w-[50%] h-[350px] bg-cyan-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[50%] h-[350px] bg-fuchsia-500/5 blur-[120px] pointer-events-none" />
 
       {/* BEFORE START: Touch interaction splash screens required by browser Audio policies */}
       {!hasStarted ? (
@@ -294,13 +390,13 @@ export default function App() {
           </div>
           
           <h1 className="text-4xl font-black tracking-tighter text-white mb-3">
-            TRAKTOR•DJ
+            TrakDroid PRO
           </h1>
           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-8 leading-relaxed max-w-sm">
-            Interactive AI DJ Studio & Pro Performance Mixing Suite
+            Professional 4-Deck DJ Mixing Suite & Live Performance Studio
           </p>
           <p className="text-slate-500 text-xs font-medium mb-8 leading-relaxed">
-            Un estudio de DJ profesional y adaptativo con tornamesas, mezcladores analógicos, soundpads con efectos en tiempo real y tu propio AI Co-Host que funciona directo en tu navegador y en Android.
+            Un estudio de DJ profesional y adaptativo con 4 cubiertas independientes, mezclador analógico completo, visualización de formas de onda completas y compatibilidad total con loops procedimentales y tus propios archivos de audio locales.
           </p>
 
           <button
@@ -308,13 +404,13 @@ export default function App() {
             onClick={handleStartAudio}
             className="w-full h-16 rounded-xl bg-cyan-500 text-black font-black text-lg tracking-widest shadow-[0_0_30px_rgba(6,182,212,0.3)] hover:bg-cyan-400 hover:shadow-[0_0_40px_rgba(6,182,212,0.4)] active:scale-95 transition"
           >
-            ENTRAR AL ESTUDIO
+            ENTRAR A TRAKDROID PRO
           </button>
 
           <div className="flex items-center gap-3.5 mt-8 bg-slate-900/40 border border-white/5 rounded-xl p-4 text-left">
             <AlertCircle className="w-5 h-5 text-cyan-400 shrink-0" />
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-relaxed">
-              Este paso activa el motor de audio web. Para una experiencia real, asegúrate de desactivar el modo silencio de tu teléfono.
+              Este paso activa el motor de audio web. Para una experiencia real, asegúrate de desactivar el modo silencio de tu teléfono o tablet.
             </span>
           </div>
         </div>
@@ -324,206 +420,109 @@ export default function App() {
           {/* Header */}
           <header className="border-b border-white/5 bg-slate-900/40 backdrop-blur px-6 py-4 flex items-center justify-between sticky top-0 z-20">
             <div className="flex items-center gap-6">
-              <div className="text-cyan-400 font-black text-xl tracking-tighter">TRAKTOR•DJ</div>
+              <div className="text-cyan-400 font-black text-xl tracking-tighter">TrakDroid•PRO</div>
               
-              {/* BPM displays styled as mini digital racks */}
-              <div className="hidden sm:flex gap-3">
-                <div className="px-3 py-1 rounded bg-slate-950 border border-white/5 flex flex-col items-center">
-                  <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">Deck A BPM</span>
-                  <span className="text-sm font-mono leading-none text-cyan-400 font-black">{deckA.bpm.toFixed(1)}</span>
+              {/* Digital rack BPM display for all 4 decks */}
+              <div className="hidden xl:flex gap-3">
+                <div className="px-2.5 py-1 rounded bg-slate-950 border border-white/5 flex flex-col items-center">
+                  <span className="text-[7.5px] uppercase font-bold text-slate-500 tracking-wider">A BPM</span>
+                  <span className="text-xs font-mono leading-none text-cyan-400 font-black">{deckA.bpm.toFixed(1)}</span>
                 </div>
-                <div className="px-3 py-1 rounded bg-slate-950 border border-white/5 flex flex-col items-center">
-                  <span className="text-[9px] uppercase font-bold text-slate-500 tracking-wider">Deck B BPM</span>
-                  <span className="text-sm font-mono leading-none text-fuchsia-400 font-black">{deckB.bpm.toFixed(1)}</span>
+                <div className="px-2.5 py-1 rounded bg-slate-950 border border-white/5 flex flex-col items-center">
+                  <span className="text-[7.5px] uppercase font-bold text-slate-500 tracking-wider">C BPM</span>
+                  <span className="text-xs font-mono leading-none text-emerald-400 font-black">{deckC.bpm.toFixed(1)}</span>
+                </div>
+                <div className="px-2.5 py-1 rounded bg-slate-950 border border-white/5 flex flex-col items-center">
+                  <span className="text-[7.5px] uppercase font-bold text-slate-500 tracking-wider">D BPM</span>
+                  <span className="text-xs font-mono leading-none text-amber-400 font-black">{deckD.bpm.toFixed(1)}</span>
+                </div>
+                <div className="px-2.5 py-1 rounded bg-slate-950 border border-white/5 flex flex-col items-center">
+                  <span className="text-[7.5px] uppercase font-bold text-slate-500 tracking-wider">B BPM</span>
+                  <span className="text-xs font-mono leading-none text-fuchsia-400 font-black">{deckB.bpm.toFixed(1)}</span>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_#ef4444]"></div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-300">Live Engine</span>
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">4-DECK AUDIO ACTIVE</span>
               </div>
               <div className="h-6 w-[1px] bg-white/10"></div>
-              {/* Info / Reset trigger */}
               <button
                 onClick={() => setHasStarted(false)}
-                className="text-[10px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-400 hover:text-white px-3.5 py-1.5 rounded transition active:scale-95"
+                className="text-[9px] font-black uppercase tracking-wider bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-400 hover:text-white px-3 py-1 rounded transition active:scale-95"
               >
-                Apagar Motor
+                APAGAR
               </button>
             </div>
           </header>
 
-          {/* DESKTOP RESPONSIVE LAYOUT (Grid) vs MOBILE LAYOUT (Tab-bar navigation with touch safe zones) */}
-          <main className="flex-1 p-3 md:p-6 max-w-7xl w-full mx-auto flex flex-col gap-5 z-10 pb-20 md:pb-6">
-            
-            {/* Desktop-only view: multi-pane bento dashboard */}
-            <div className="hidden lg:grid grid-cols-12 gap-5 items-stretch">
-              {/* Left Side: Turntables and Mixer, Soundpads */}
-              <div className="col-span-8 flex flex-col gap-5">
-                {/* Turntables Left & Right */}
-                <div className="grid grid-cols-2 gap-5">
-                  <Turntable
-                    deckId="A"
-                    state={deckA}
-                    onPlayToggle={() => handlePlayToggle("A")}
-                    onLoadTrackClick={() => openLoadModal("A")}
-                    onPitchChange={handlePitchChange}
-                    onSync={handleSync}
-                  />
-                  <Turntable
-                    deckId="B"
-                    state={deckB}
-                    onPlayToggle={() => handlePlayToggle("B")}
-                    onLoadTrackClick={() => openLoadModal("B")}
-                    onPitchChange={handlePitchChange}
-                    onSync={handleSync}
-                  />
-                </div>
-
-                {/* Mixer Console and Soundpads */}
-                <div className="grid grid-cols-1 gap-5">
-                  <Mixer
-                    stateA={deckA}
-                    stateB={deckB}
-                    crossfader={crossfader}
-                    onVolumeChange={handleVolumeChange}
-                    onEQChange={handleEQChange}
-                    onFilterChange={handleFilterChange}
-                    onPitchChange={handlePitchChange}
-                    onCrossfaderChange={handleCrossfaderChange}
-                    onSync={handleSync}
-                  />
-                  <SoundPad
-                    onSampleTriggered={(name) => {
-                      setActiveSamples((prev) => [...prev, name].slice(-3));
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Right Side: AI Assistant Panel */}
-              <div className="col-span-4 h-full">
-                <AiCoach
-                  stateA={deckA}
-                  stateB={deckB}
-                  crossfader={crossfader}
-                  activeSamples={activeSamples}
-                  onLoadSuggestedTrack={handleLoadSuggestedTrack}
-                />
-              </div>
+          {/* HORIZONTAL FULL-SCREEN LAYOUT: DECK ROW + MIXER ROW */}
+          <main className="flex-1 p-4 md:p-6 w-full mx-auto flex flex-col gap-6 z-10">
+            {/* Row 1: The 4 Decks horizontally */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+              <Turntable
+                deckId="A"
+                state={deckA}
+                onPlayToggle={() => handlePlayToggle("A")}
+                onLoadTrackClick={() => openLoadModal("A")}
+                onPitchChange={handlePitchChange}
+                onSync={handleSync}
+              />
+              <Turntable
+                deckId="C"
+                state={deckC}
+                onPlayToggle={() => handlePlayToggle("C")}
+                onLoadTrackClick={() => openLoadModal("C")}
+                onPitchChange={handlePitchChange}
+                onSync={handleSync}
+              />
+              <Turntable
+                deckId="D"
+                state={deckD}
+                onPlayToggle={() => handlePlayToggle("D")}
+                onLoadTrackClick={() => openLoadModal("D")}
+                onPitchChange={handlePitchChange}
+                onSync={handleSync}
+              />
+              <Turntable
+                deckId="B"
+                state={deckB}
+                onPlayToggle={() => handlePlayToggle("B")}
+                onLoadTrackClick={() => openLoadModal("B")}
+                onPitchChange={handlePitchChange}
+                onSync={handleSync}
+              />
             </div>
 
-            {/* Mobile / Android-optimized views: Dynamic tab navigation with huge touch-safe triggers */}
-            <div className="block lg:hidden flex-1 flex flex-col justify-between">
-              
-              {/* Tab 1: Decks panel */}
-              {activeTab === "decks" && (
-                <div className="flex flex-col gap-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Turntable
-                      deckId="A"
-                      state={deckA}
-                      onPlayToggle={() => handlePlayToggle("A")}
-                      onLoadTrackClick={() => openLoadModal("A")}
-                      onPitchChange={handlePitchChange}
-                      onSync={handleSync}
-                    />
-                    <Turntable
-                      deckId="B"
-                      state={deckB}
-                      onPlayToggle={() => handlePlayToggle("B")}
-                      onLoadTrackClick={() => openLoadModal("B")}
-                      onPitchChange={handlePitchChange}
-                      onSync={handleSync}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 2: Mixer panel */}
-              {activeTab === "mixer" && (
-                <Mixer
-                  stateA={deckA}
-                  stateB={deckB}
-                  crossfader={crossfader}
-                  onVolumeChange={handleVolumeChange}
-                  onEQChange={handleEQChange}
-                  onFilterChange={handleFilterChange}
-                  onPitchChange={handlePitchChange}
-                  onCrossfaderChange={handleCrossfaderChange}
-                  onSync={handleSync}
-                />
-              )}
-
-              {/* Tab 3: AI Assistant panel */}
-              {activeTab === "ai" && (
-                <AiCoach
-                  stateA={deckA}
-                  stateB={deckB}
-                  crossfader={crossfader}
-                  activeSamples={activeSamples}
-                  onLoadSuggestedTrack={handleLoadSuggestedTrack}
-                />
-              )}
-
-              {/* Tab 4: Soundboard buttons */}
-              {activeTab === "soundpads" && (
-                <SoundPad
-                  onSampleTriggered={(name) => {
-                    setActiveSamples((prev) => [...prev, name].slice(-3));
-                  }}
-                />
-              )}
-
-              {/* Bottom Mobile Tab Bar (Height = 64px, safe tap zones) */}
-              <nav className="fixed bottom-0 left-0 right-0 bg-slate-950/95 border-t border-white/5 px-2 py-3 flex justify-around items-center z-30 backdrop-blur-md">
-                <button
-                  onClick={() => setActiveTab("decks")}
-                  className={`flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${activeTab === "decks" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" : "text-slate-500 border border-transparent hover:text-slate-300"}`}
-                >
-                  <Disc className="w-5 h-5" />
-                  <span className="text-[9px] font-black uppercase tracking-wider mt-1.5">Cubiertas</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab("mixer")}
-                  className={`flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${activeTab === "mixer" ? "bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20" : "text-slate-500 border border-transparent hover:text-slate-300"}`}
-                >
-                  <Sliders className="w-5 h-5" />
-                  <span className="text-[9px] font-black uppercase tracking-wider mt-1.5">Mezclador</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab("ai")}
-                  className={`flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${activeTab === "ai" ? "bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20" : "text-slate-500 border border-transparent hover:text-slate-300"}`}
-                >
-                  <Sparkles className="w-5 h-5" />
-                  <span className="text-[9px] font-black uppercase tracking-wider mt-1.5">AI Coach</span>
-                </button>
-
-                <button
-                  onClick={() => setActiveTab("soundpads")}
-                  className={`flex flex-col items-center justify-center py-2 px-4 rounded-xl transition-all ${activeTab === "soundpads" ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" : "text-slate-500 border border-transparent hover:text-slate-300"}`}
-                >
-                  <Volume2 className="w-5 h-5" />
-                  <span className="text-[9px] font-black uppercase tracking-wider mt-1.5">Soundpad</span>
-                </button>
-              </nav>
+            {/* Row 2: Mixer Spanning Full Width underneath */}
+            <div className="w-full">
+              <Mixer
+                stateA={deckA}
+                stateB={deckB}
+                stateC={deckC}
+                stateD={deckD}
+                crossfader={crossfader}
+                onVolumeChange={handleVolumeChange}
+                onEQChange={handleEQChange}
+                onFilterChange={handleFilterChange}
+                onCrossfaderChange={handleCrossfaderChange}
+                onSync={handleSync}
+              />
             </div>
           </main>
         </>
       )}
 
-      {/* TRACK LOADER DIALOG DIALOG MODAL (Saves precious layout space) */}
+      {/* TRACK LOADER DIALOG DIALOG MODAL */}
       {isLoadModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-950 border border-white/5 rounded-2xl w-full max-w-md p-6 flex flex-col gap-5 shadow-[0_0_50px_rgba(0,0,0,0.8)] relative z-10 animate-fade-in animate-duration-150">
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-slate-950 border border-white/5 rounded-xl w-full max-w-md p-5 flex flex-col gap-4 shadow-2xl relative">
             {/* Header */}
-            <div className="flex justify-between items-center border-b border-white/5 pb-3.5">
-              <h3 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-2">
-                <FolderOpen className="w-4 h-4 text-cyan-400" /> Cargar Track en Cubierta {targetDeck}
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <h3 className="text-xs font-black uppercase tracking-widest text-white flex items-center gap-1.5">
+                <FolderOpen className="w-4 h-4 text-cyan-400" /> Cargar en Cubierta {targetDeck}
               </h3>
               <button
                 onClick={() => setIsLoadModalOpen(false)}
@@ -534,21 +533,21 @@ export default function App() {
             </div>
 
             {/* List of High-Fidelity Synthesized loops */}
-            <div className="flex flex-col gap-3">
-              <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Sets Algorítmicos Incorporados</span>
-              <div className="flex flex-col gap-2 overflow-y-auto max-h-56 pr-1">
+            <div className="flex flex-col gap-2">
+              <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Procedural Sets (In-App)</span>
+              <div className="flex flex-col gap-1.5 overflow-y-auto max-h-48 pr-1">
                 {PRESET_LOOPS.map((track) => (
                   <button
                     key={track.id}
                     id={`select-track-${track.id}`}
                     onClick={() => selectTrack(track)}
-                    className="flex justify-between items-center p-3 rounded-xl bg-slate-900/60 hover:bg-slate-900 border border-white/5 hover:border-cyan-500/30 text-left transition-all"
+                    className="flex justify-between items-center p-2.5 rounded bg-slate-900/40 hover:bg-slate-900 border border-white/5 hover:border-cyan-500/20 text-left transition-all"
                   >
                     <div>
-                      <div className="text-white text-xs font-black">{track.title}</div>
-                      <div className="text-[10px] text-slate-500 font-extrabold mt-0.5 uppercase tracking-wide">{track.genre}</div>
+                      <div className="text-white text-xs font-black leading-tight">{track.title}</div>
+                      <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{track.genre}</div>
                     </div>
-                    <div className="text-right font-mono text-xs text-slate-400 font-bold shrink-0">
+                    <div className="font-mono text-xs text-slate-400 font-bold">
                       {track.bpm} BPM
                     </div>
                   </button>
@@ -556,16 +555,16 @@ export default function App() {
               </div>
             </div>
 
-            {/* Android / Device File Upload */}
-            <div className="border-t border-white/5 pt-4 flex flex-col gap-3">
-              <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Cargar tu propia música (MP3/WAV)</span>
+            {/* Device File Upload */}
+            <div className="border-t border-white/5 pt-3 flex flex-col gap-2">
+              <span className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Cargar tu propia música (MP3/WAV/etc)</span>
               
               <button
                 id="file-upload-trigger"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center justify-center gap-2 py-3.5 bg-slate-900/40 hover:bg-slate-900 border border-dashed border-white/10 hover:border-fuchsia-500/30 rounded-xl cursor-pointer text-xs font-black uppercase tracking-wider text-slate-300 transition-all"
+                className="flex items-center justify-center gap-1.5 py-3 bg-slate-900/40 hover:bg-slate-900 border border-dashed border-white/10 hover:border-fuchsia-500/20 rounded text-[10px] font-black uppercase tracking-wider text-slate-300 transition-all"
               >
-                <Upload className="w-4 h-4 text-fuchsia-400" /> Seleccionar archivo de tu dispositivo
+                <Upload className="w-3.5 h-3.5 text-fuchsia-400" /> Seleccionar Archivo local
               </button>
 
               <input
