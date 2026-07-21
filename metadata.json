@@ -1,0 +1,6 @@
+{
+  "name": "Traktor DJ - AI Studio",
+  "description": "Interactive mobile-responsive DJ deck with turntables, full audio mixers, visualizers, procedural loops, and an AI co-host DJ assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
